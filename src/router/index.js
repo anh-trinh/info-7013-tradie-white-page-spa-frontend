@@ -1,5 +1,6 @@
 
 import { createRouter, createWebHistory } from 'vue-router';
+import AdminDashboard from '../views/AdminDashboard.vue';
 
 const ResidentDashboard = () => import('@/views/ResidentDashboard.vue');
 const TradieDashboard = () => import('@/views/TradieDashboard.vue');
@@ -53,13 +54,52 @@ const router = createRouter({
         }
       ]
     },
+      // Admin Dashboard
+      {
+        path: '/admin',
+        component: AdminDashboard,
+        meta: { requiresAuth: true, role: 'admin' },
+        children: [
+          { path: '', redirect: { name: 'admin-accounts' } },
+          {
+            path: 'accounts',
+            name: 'admin-accounts',
+            component: () => import('@/views/admin/AccountManagement.vue')
+          },
+          {
+            path: 'categories',
+            name: 'admin-categories',
+            component: () => import('@/views/admin/ServiceCategories.vue')
+          },
+          {
+            path: 'jobs',
+            name: 'admin-jobs',
+            component: () => import('@/views/admin/JobManagement.vue')
+          },
+          {
+            path: 'reviews',
+            name: 'admin-reviews',
+            component: () => import('@/views/admin/ReviewManagement.vue')
+          }
+        ]
+      },
   ],
 });
 
+
 router.beforeEach((to, from, next) => {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('token') || localStorage.getItem('admin_token');
+  const user = JSON.parse(localStorage.getItem('user') || localStorage.getItem('admin_user'));
+
   if (to.meta.requiresAuth && !token) {
-    window.location.href = '/login';
+    if (to.path.startsWith('/admin')) {
+      window.location.href = '/admin/login';
+    } else {
+      window.location.href = '/login';
+    }
+  } else if (to.meta.role && user?.role !== to.meta.role) {
+    alert('You do not have permission to access this page.');
+    window.location.href = '/';
   } else {
     next();
   }
