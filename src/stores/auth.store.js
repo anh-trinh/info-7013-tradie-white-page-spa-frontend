@@ -1,9 +1,21 @@
 import { defineStore } from 'pinia';
 
+// Helper functions to get token/user from both localStorage and sessionStorage
+const getStoredToken = () => {
+  return localStorage.getItem('token') || sessionStorage.getItem('token') || null;
+};
+
+const getStoredUser = () => {
+  const userFromLocal = localStorage.getItem('user');
+  const userFromSession = sessionStorage.getItem('user');
+  const userData = userFromLocal || userFromSession;
+  return userData ? JSON.parse(userData) : null;
+};
+
 export const useAuthStore = defineStore('auth', {
   state: () => ({
-    user: JSON.parse(localStorage.getItem('user')) || null,
-    token: localStorage.getItem('token') || null,
+    user: getStoredUser(),
+    token: getStoredToken(),
   }),
   getters: {
     isLoggedIn: (state) => !!state.token,
@@ -13,8 +25,11 @@ export const useAuthStore = defineStore('auth', {
     logout() {
       this.user = null;
       this.token = null;
+      // Clear from both storage locations
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('user');
       window.location.href = '/';
     }
   }

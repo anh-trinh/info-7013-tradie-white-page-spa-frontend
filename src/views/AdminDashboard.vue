@@ -1,17 +1,6 @@
 <template>
   <div class="min-h-screen bg-gray-100 font-sans">
-    <header class="bg-slate-800 text-white shadow-lg">
-      <div class="container mx-auto px-6 py-3 flex justify-between items-center">
-        <h1 class="font-bold text-xl flex items-center">
-          <span class="bg-red-500 text-white w-7 h-7 flex items-center justify-center rounded-md mr-2 font-mono">A</span>
-          Admin Dashboard
-        </h1>
-        <div v-if="auth.isLoggedIn">
-          <span>Hello, {{ auth.getUser?.first_name }}!</span>
-          <button @click="auth.logout" class="ml-4 font-semibold text-red-400 hover:underline">Logout</button>
-        </div>
-      </div>
-    </header>
+    <TheHeader />
     <main class="container mx-auto p-6">
       <div class="bg-white rounded-lg shadow-md">
         <div class="flex border-b border-gray-200">
@@ -29,8 +18,7 @@
 </template>
 <script setup>
 import { RouterLink, RouterView } from 'vue-router';
-import { useAuthStore } from '@/stores/auth.store';
-const auth = useAuthStore();
+import TheHeader from '@/components/TheHeader.vue';
 </script>
 <style>
 .admin-tab {

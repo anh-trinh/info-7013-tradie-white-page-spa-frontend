@@ -9,10 +9,10 @@
 	 ```
 
 2. Start development server (for WSL or network access):
-	 ```bash
-	 npm run dev -- --host
-	 ```
-	 Access at: http://<your-ip>:5173/ (usually the last ip in the terminal)
+	```bash
+	npm run dev
+	```
+		Access at: http://localhost:5173/ (or http://<your-ip>:5173/ for network access)
 
 3. Build for production:
 	 ```bash

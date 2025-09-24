@@ -1,6 +1,7 @@
 
 import { createRouter, createWebHistory } from 'vue-router';
 import AdminDashboard from '../views/AdminDashboard.vue';
+import { useAuthStore } from '@/stores/auth.store';
 
 const ResidentDashboard = () => import('@/views/ResidentDashboard.vue');
 const TradieDashboard = () => import('@/views/TradieDashboard.vue');
@@ -88,21 +89,25 @@ const router = createRouter({
 
 
 router.beforeEach((to, from, next) => {
-  const token = localStorage.getItem('token') || localStorage.getItem('admin_token');
-  const user = JSON.parse(localStorage.getItem('user') || localStorage.getItem('admin_user'));
+  const auth = useAuthStore();
+  const requiresAuth = to.matched.some(record => record.meta?.requiresAuth);
 
-  if (to.meta.requiresAuth && !token) {
+  if (requiresAuth && !auth.isLoggedIn) {
     if (to.path.startsWith('/admin')) {
       window.location.href = '/admin/login';
     } else {
       window.location.href = '/login';
     }
-  } else if (to.meta.role && user?.role !== to.meta.role) {
+    return; // stop navigation, redirecting
+  }
+
+  if (to.meta?.role && auth.getUser?.role !== to.meta.role) {
     alert('You do not have permission to access this page.');
     window.location.href = '/';
-  } else {
-    next();
+    return;
   }
+
+  next();
 });
 
 export default router;
