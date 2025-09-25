@@ -14,7 +14,7 @@
         <div class="flex justify-between items-start">
           <div>
             <h4 class="font-bold text-lg">{{ quote.job_description }}</h4>
-            <p class="text-sm text-gray-600">Requested by {{ quote.resident_name }}</p>
+            <p class="text-sm text-gray-600">Requested by {{ getRequesterName(quote) }}</p>
             <p class="text-xs text-gray-500" v-if="quote.address">{{ quote.address }}</p>
           </div>
           <span class="font-semibold px-3 py-1 rounded-full text-sm" :class="statusClass(quote.status)">
@@ -79,4 +79,21 @@ const statusClass = (status) => {
   if (status === 'accepted') return 'bg-green-200 text-green-800';
   return 'bg-gray-200 text-gray-800';
 };
+
+function getRequesterName(quote) {
+  // Common shapes we might receive from API
+  if (quote?.resident_name) return quote.resident_name;
+  const resident = quote?.resident || quote?.user || quote?.account || quote?.requester;
+  if (resident) {
+    const first = resident.first_name || resident.firstName || '';
+    const last = resident.last_name || resident.lastName || '';
+    const full = `${first} ${last}`.trim();
+    if (full) return full;
+    if (resident.name) return resident.name;
+    if (resident.email) return resident.email.split('@')[0];
+  }
+  // Fallbacks
+  if (quote?.email) return quote.email.split('@')[0];
+  return 'Unknown';
+}
 </script>

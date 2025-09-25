@@ -16,19 +16,41 @@ const apiClient = axios.create({
 
 apiClient.interceptors.request.use(
   (config) => {
+    // Helper: determine if this request is public (no token required)
+    const isGet = (config.method || 'get').toLowerCase() === 'get';
+    let isPublic = false;
+    try {
+      const url = new URL(config.url, BASE_URL);
+      const path = url.pathname.replace(/\/+$/, '') || '/';
+  // Public GET endpoints
+  const publicPaths = ['/api/services', '/api/quotes'];
+  const publicGetRegexes = [/^\/api\/tradies\/\d+$/]; // e.g., /api/tradies/135
+  isPublic = isGet && (publicPaths.includes(path) || publicGetRegexes.some((re) => re.test(path)));
+    } catch {
+      // If URL parsing fails, default to enforcing auth
+      isPublic = false;
+    }
+
     // Read token from both localStorage and sessionStorage
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    if (!token) {
-      // No token: redirect to login and prevent the request from being sent
-      if (!window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/admin/login')) {
-        window.location.href = '/login';
-      }
-      return Promise.reject(new Error('Missing auth token'));
+
+    // Attach Authorization header if token exists (even for public endpoints it's okay but not required)
+    if (token) {
+      config.headers = config.headers || {};
+      config.headers.Authorization = `Bearer ${token}`;
+      return config;
     }
-    // Ensure headers object exists
-    config.headers = config.headers || {};
-    config.headers.Authorization = `Bearer ${token}`;
-    return config;
+
+    // If no token and endpoint is public, allow the request to proceed without redirect/reject
+    if (isPublic) {
+      return config;
+    }
+
+    // Otherwise, redirect to login and block the request
+    if (!window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/admin/login')) {
+      window.location.href = '/login';
+    }
+    return Promise.reject(new Error('Missing auth token'));
   },
   (error) => Promise.reject(error)
 );
