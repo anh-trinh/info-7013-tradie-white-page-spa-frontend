@@ -47,8 +47,12 @@
                 <label class="block text-sm">Message to Resident</label>
                 <textarea v-model="message" placeholder="e.g., This price includes parts and labor..." class="w-full p-2 border rounded-md" required></textarea>
             </div>
-            <div class="mt-4">
-                <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-md font-semibold hover:bg-blue-700">Send Quote</button>
+            <div class="mt-4 flex items-center gap-3">
+                <button type="submit" :disabled="sending" class="bg-blue-600 text-white px-6 py-2 rounded-md font-semibold hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed">
+                  {{ sending ? 'Sending…' : 'Send Quote' }}
+                </button>
+                <span v-if="formSuccess" class="text-green-600 text-sm">{{ formSuccess }}</span>
+                <span v-if="formError" class="text-red-600 text-sm">{{ formError }}</span>
             </div>
           </form>
         </div>
@@ -58,72 +62,74 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import bookingService from '@/services/booking.service';
 import { useAuthStore } from '@/stores/auth.store';
+import { useQuoteStore } from '@/stores/quote.store';
 
 const auth = useAuthStore();
-const quotes = ref([]);
-const loading = ref(true);
-const error = ref(null);
-const selectedQuote = ref(null);
+const quoteStore = useQuoteStore();
+
+// Bind to store
+const quotes = computed(() => quoteStore.quotes);
+const selectedQuote = computed(() => quoteStore.selectedQuote);
+const loading = computed(() => quoteStore.loading);
+const error = computed(() => quoteStore.error);
+
+onMounted(() => {
+  quoteStore.fetchQuotes();
+});
 
 // Form state
 const message = ref('');
 const offeredPrice = ref(null);
+const sending = ref(false);
+const formError = ref(null);
+const formSuccess = ref(null);
 
-// Load quotes assigned to this tradie
-onMounted(async () => {
-  try {
-    const response = await bookingService.getQuotes();
-    quotes.value = response.data;
-  } catch (err) { 
-    error.value = 'Failed to load quote requests.';
-    console.error(err);
-  } finally { 
-    loading.value = false; 
-  }
-});
-
-// When selecting a quote, fetch full details (including messages)
 async function selectQuote(quote) {
-  try {
-    const res = await bookingService.getQuoteById(quote.id);
-    selectedQuote.value = res.data;
-  } catch (err) {
-    console.error('Failed to load quote detail', err);
-  }
+  await quoteStore.selectQuote(quote);
   // Reset form
   message.value = '';
   offeredPrice.value = null;
+  formError.value = null;
+  formSuccess.value = null;
 }
 
 // Send tradie's quote (message + price)
 async function sendQuoteResponse() {
-  if (!offeredPrice.value || !message.value.trim() || !selectedQuote.value) {
-    alert('Please enter both price and message.');
+  formError.value = null;
+  formSuccess.value = null;
+  if (!selectedQuote.value) return;
+  if (offeredPrice.value == null || offeredPrice.value === '' || Number(offeredPrice.value) <= 0) {
+    formError.value = 'Please enter a valid price greater than 0.';
     return;
   }
-
+  if (!message.value || !message.value.trim()) {
+    formError.value = 'Please enter a message to the resident.';
+    return;
+  }
   const payload = {
     message: message.value,
-    offered_price: offeredPrice.value
+    offered_price: offeredPrice.value,
   };
-
   try {
+    sending.value = true;
     await bookingService.addQuoteMessage(selectedQuote.value.id, payload);
-
-    alert('Your quote has been sent successfully!');
-
-    // Reload list to reflect status changes
-    const response = await bookingService.getQuotes();
-    quotes.value = response.data;
-
-    // Clear selection
-    selectedQuote.value = null;
+    // Refresh the current thread so the new message appears inline
+    await quoteStore.selectQuote({ id: selectedQuote.value.id });
+    // Optionally refresh the list to update statuses without closing the panel
+    quoteStore.fetchQuotes();
+    // Clear the form
+    message.value = '';
+    offeredPrice.value = null;
+    formSuccess.value = 'Quote sent.';
+    setTimeout(() => (formSuccess.value = null), 2000);
   } catch (err) {
-    alert('Failed to send quote.');
+    formError.value = 'Failed to send quote. Please try again.';
     console.error(err);
+  } finally {
+    sending.value = false;
   }
 }
 </script>

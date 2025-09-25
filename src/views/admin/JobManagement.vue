@@ -66,11 +66,12 @@ onMounted(fetchBookings);
 
 const formatDate = (dateString) => {
   if (!dateString) return '';
-  return new Date(dateString).toLocaleDateString('en-AU', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  });
+  const d = new Date(dateString);
+  if (isNaN(d)) return '';
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
 };
 
 const statusClass = (status) => {

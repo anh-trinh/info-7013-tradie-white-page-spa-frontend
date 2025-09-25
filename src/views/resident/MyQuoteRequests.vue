@@ -23,6 +23,14 @@
       <div class="md:col-span-2">
         <div v-if="!selectedQuote" class="text-center text-gray-500 pt-10">Select a request from the left to see details.</div>
         <div v-else>
+          <!-- Inline success/error banners -->
+          <div v-if="successMessage" class="mb-4 p-3 rounded border border-green-300 bg-green-50 text-green-800">
+            {{ successMessage }}
+          </div>
+          <div v-if="errorMessage" class="mb-4 p-3 rounded border border-red-300 bg-red-50 text-red-800">
+            {{ errorMessage }}
+          </div>
+
           <h4 class="text-xl font-bold mb-4">Conversation History for "{{ selectedQuote.job_description }}"</h4>
 
           <div class="space-y-4 border p-4 rounded-md h-64 overflow-y-auto mb-4 bg-gray-50">
@@ -39,15 +47,18 @@
 
           <div v-if="selectedQuote.status === 'responded'">
             <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
-              <p class="font-bold">Tradie has responded!</p>
-              <p class="text-sm">You can now accept their offer or send a counter-offer.</p>
+              <p class="font-bold">Tradie has responded with an offer!</p>
+              <p v-if="latestOffer" class="font-bold text-green-600 text-2xl my-2">${{ latestOffer.offered_price }}</p>
+              <p class="text-sm">You can now accept this offer to schedule the job, or send a counter-offer.</p>
             </div>
             <div class="flex gap-4 mb-6">
-              <button @click="acceptOffer" class="bg-green-500 text-white px-6 py-2 rounded-md font-semibold hover:bg-green-600">Accept Offer</button>
+              <button @click="acceptOffer" :disabled="!latestOffer" class="bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-2 rounded-md font-semibold hover:bg-green-700">
+                Accept & Schedule Job
+              </button>
             </div>
           </div>
 
-          <form @submit.prevent="sendMessage">
+          <form v-if="hasTradieResponse && selectedQuote.status !== 'accepted'" @submit.prevent="sendMessage">
             <h5 class="font-semibold mb-2">Send a message or counter-offer:</h5>
             <textarea v-model="newMessage" placeholder="Your message..." class="w-full p-2 border rounded-md" required></textarea>
             <div class="mt-2">
@@ -62,34 +73,56 @@
       </div>
     </div>
   </div>
+
+  <!-- Schedule Modal -->
+  <div v-if="showScheduleModal" class="fixed inset-0 z-50 flex items-center justify-center">
+    <div class="absolute inset-0 bg-black/40" @click="closeScheduleModal"></div>
+    <div class="relative bg-white w-full max-w-md mx-4 rounded-lg shadow-xl p-6">
+      <h3 class="text-xl font-bold mb-4">Select date & time</h3>
+      <p class="text-sm text-gray-600 mb-4">Choose when you want the tradie to come. You can adjust later if needed.</p>
+
+      <label class="block text-sm font-medium mb-1">Scheduled at</label>
+      <input
+        v-model="scheduleAt"
+        type="datetime-local"
+        class="w-full border rounded-md p-2"
+        :min="minDateTime"
+      />
+      <p v-if="scheduleError" class="text-sm text-red-600 mt-1">{{ scheduleError }}</p>
+
+      <div class="mt-6 flex justify-end gap-3">
+        <button @click="closeScheduleModal" class="px-4 py-2 rounded-md border">Cancel</button>
+        <button @click="confirmSchedule" :disabled="scheduling" class="px-4 py-2 rounded-md bg-green-600 text-white hover:bg-green-700 disabled:opacity-50">
+          <span v-if="scheduling">Scheduling...</span>
+          <span v-else>Confirm</span>
+        </button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import bookingService from '@/services/booking.service';
 import { useAuthStore } from '@/stores/auth.store';
+import { useQuoteStore } from '@/stores/quote.store';
 
 const auth = useAuthStore();
-const quotes = ref([]);
-const loading = ref(true);
-const error = ref(null);
-const selectedQuote = ref(null);
+const quoteStore = useQuoteStore();
+
+// Wiring component state to store
+const quotes = computed(() => quoteStore.quotes.filter((q) => q.status !== 'accepted' && q.status !== 'rejected'));
+const selectedQuote = computed(() => quoteStore.selectedQuote);
+const loading = computed(() => quoteStore.loading);
+const error = computed(() => quoteStore.error);
+
+onMounted(() => {
+  quoteStore.fetchQuotes();
+});
+
+// Local form state
 const newMessage = ref('');
 const newPrice = ref(null);
-
-// Load list of quotes (exclude accepted and rejected)
-async function fetchQuotes() {
-  try {
-    loading.value = true;
-    const response = await bookingService.getQuotes();
-    quotes.value = (response.data || []).filter((q) => q.status !== 'accepted' && q.status !== 'rejected');
-  } catch {
-    error.value = 'Failed to load quote requests.';
-  } finally {
-    loading.value = false;
-  }
-}
-onMounted(fetchQuotes);
 
 // Latest offer message with a price
 const latestOffer = computed(() => {
@@ -97,9 +130,14 @@ const latestOffer = computed(() => {
   return [...selectedQuote.value.messages].reverse().find((m) => m.offered_price);
 });
 
-async function selectQuote(quote) {
-  const response = await bookingService.getQuoteById(quote.id);
-  selectedQuote.value = response.data;
+// Whether tradie has replied in the thread
+const hasTradieResponse = computed(() => {
+  const msgs = selectedQuote.value?.messages || [];
+  return msgs.some((m) => m.sender_account_id !== auth.getUser.id);
+});
+
+function selectQuote(quote) {
+  quoteStore.selectQuote(quote);
 }
 
 async function sendMessage() {
@@ -109,35 +147,96 @@ async function sendMessage() {
     offered_price: newPrice.value || null,
   };
   await bookingService.addQuoteMessage(selectedQuote.value.id, payload);
-  await selectQuote(selectedQuote.value); // refresh thread
+  // refresh thread via store
+  await quoteStore.selectQuote(selectedQuote.value);
   newMessage.value = '';
   newPrice.value = null;
 }
 
-// Accept current latest offer and create booking
-async function acceptOffer() {
+// UI state for scheduling modal and notifications
+const showScheduleModal = ref(false);
+const scheduleAt = ref(getDefaultDateTimeLocal());
+const scheduling = ref(false);
+const scheduleError = ref('');
+const successMessage = ref('');
+const errorMessage = ref('');
+
+function getDefaultDateTimeLocal() {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() + 60);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+const minDateTime = computed(() => {
+  // Prevent selecting past times
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+});
+
+function acceptOffer() {
   if (!selectedQuote.value || !latestOffer.value) {
-    alert('No offer available to accept.');
+    errorMessage.value = 'No offer available to accept.';
+    setTimeout(() => (errorMessage.value = ''), 3000);
     return;
   }
-  const scheduledAt = prompt(
-    'Please enter the desired date and time for the job (YYYY-MM-DD HH:MM:SS):',
-    new Date().toISOString().slice(0, 19).replace('T', ' ')
-  );
-  if (!scheduledAt) return;
+  scheduleAt.value = getDefaultDateTimeLocal();
+  scheduleError.value = '';
+  showScheduleModal.value = true;
+}
+
+function closeScheduleModal() {
+  showScheduleModal.value = false;
+}
+
+function toBackendDateTime(datetimeLocal) {
+  // Convert from 'YYYY-MM-DDTHH:MM' to 'YYYY-MM-DD HH:MM:SS'
+  const d = new Date(datetimeLocal);
+  if (isNaN(d)) return null;
+  const pad = (n) => String(n).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  const mm = pad(d.getMonth() + 1);
+  const dd = pad(d.getDate());
+  const hh = pad(d.getHours());
+  const mi = pad(d.getMinutes());
+  const ss = '00';
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
+}
+
+async function confirmSchedule() {
+  scheduleError.value = '';
+  if (!scheduleAt.value) {
+    scheduleError.value = 'Please select a date and time.';
+    return;
+  }
+  const scheduled_at = toBackendDateTime(scheduleAt.value);
+  if (!scheduled_at) {
+    scheduleError.value = 'Invalid date/time format.';
+    return;
+  }
+  if (!selectedQuote.value || !latestOffer.value) {
+    scheduleError.value = 'No offer available to accept.';
+    return;
+  }
   const payload = {
     quote_id: selectedQuote.value.id,
     final_price: latestOffer.value.offered_price,
-    scheduled_at: scheduledAt,
+    scheduled_at,
   };
   try {
+    scheduling.value = true;
     await bookingService.createBooking(payload);
-    alert('Offer accepted and job has been scheduled! You can view it in "My Jobs".');
-    await fetchQuotes();
-    selectedQuote.value = null;
+    showScheduleModal.value = false;
+    successMessage.value = 'Offer accepted and job has been scheduled! You can view it in "My Jobs".';
+    setTimeout(() => (successMessage.value = ''), 4000);
+    await quoteStore.fetchQuotes();
+    quoteStore.selectedQuote = null;
   } catch (err) {
-    alert('Failed to accept the offer.');
     console.error(err);
+    scheduleError.value = 'Failed to accept the offer. Please try again.';
+  } finally {
+    scheduling.value = false;
   }
 }
 </script>

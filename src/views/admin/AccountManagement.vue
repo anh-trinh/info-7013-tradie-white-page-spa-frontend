@@ -24,7 +24,7 @@
             </td>
             <td class="py-3 px-4"><span class="py-1 px-3 rounded-full text-xs" :class="roleClass(account.role)">{{ account.role }}</span></td>
             <td class="py-3 px-4"><span class="py-1 px-3 rounded-full text-xs" :class="statusClass(account.status)">{{ account.status }}</span></td>
-            <td class="py-3 px-4">{{ new Date(account.created_at).toLocaleDateString() }}</td>
+            <td class="py-3 px-4">{{ formatDate(account.created_at) }}</td>
             <td class="py-3 px-4 space-x-2">
                 <button @click="toggleSuspend(account)" class="text-yellow-500 font-medium">
                   {{ account.status === 'active' ? 'Suspend' : 'Activate' }}
@@ -81,4 +81,15 @@ const statusClass = (status) => ({
   'bg-green-200 text-green-800': status === 'active',
   'bg-yellow-200 text-yellow-800': status === 'suspended',
 });
+
+// Date helper DD/MM/YYYY
+const formatDate = (value) => {
+  if (!value) return '';
+  const d = new Date(value);
+  if (isNaN(d)) return '';
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+};
 </script>

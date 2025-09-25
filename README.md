@@ -73,4 +73,21 @@ src/
 			MyQuoteRequests.vue # Tradie quote requests tab
 			MyJobs.vue          # Tradie jobs/work schedule tab
 ```
+
+## Environment variables
+
+Copy `.env.example` to `.env` (or create mode-specific `.env.development` / `.env.production`).
+
+- VITE_API_BASE_URL: Backend API base URL (default http://localhost:8888)
+- VITE_API_WITH_CREDENTIALS: Whether to send cookies with requests (default false)
+- VITE_WEBSOCKET_URL: WebSocket URL for real-time updates (default http://localhost:8888)
+- VITE_WEBSOCKET_PATH: WebSocket path (default /socket.io/). Change to /ws/ if your server uses a custom path.
+- VITE_WEBSOCKET_ENABLED: Enable/disable WebSockets (default true). Set to false to disable client socket connection.
+
+## Networking & real-time
+
+- Axios is configured in `src/services/api.js` to read the base URL from env and attach Authorization headers automatically.
+- Public GET endpoints require no token and are whitelisted in the interceptor: `/api/services`, `/api/quotes`, and `/api/tradies/:id`.
+- 401 responses clear session and redirect to `/login`.
+- Socket.IO client (`src/services/socket.service.js`) connects to `VITE_WEBSOCKET_URL` with `VITE_WEBSOCKET_PATH` (default `/socket.io/`) and registers the current user id upon connect, then listens for `quote_update` events to update the quotes store in real time. The client sends the JWT in the handshake auth payload. If `VITE_WEBSOCKET_ENABLED=false` or connection fails, the app continues to function without realtime updates.
 ```
