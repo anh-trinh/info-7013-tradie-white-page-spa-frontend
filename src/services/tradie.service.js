@@ -4,6 +4,13 @@ export default {
   getCategories() {
     return apiClient.get('/api/services');
   },
+  // Admin APIs
+  createCategory(categoryData) {
+    return apiClient.post('/api/admin/categories', categoryData);
+  },
+  deleteCategory(id) {
+    return apiClient.delete(`/api/admin/categories/${id}`);
+  },
   getTradieProfile(accountId) {
     return apiClient.get(`/api/tradies/${accountId}`);
   },
@@ -13,5 +20,8 @@ export default {
   },
   createTradieProfile(profileData) {
     return apiClient.post('/api/tradies', profileData);
+  },
+  updateCategory(id, categoryData) {
+    return apiClient.put(`/api/admin/categories/${id}`, categoryData);
   }
 };

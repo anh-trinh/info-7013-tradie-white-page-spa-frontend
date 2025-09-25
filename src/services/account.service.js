@@ -13,5 +13,8 @@ export default {
   },
   updateAccountStatus(id, status) {
     return apiClient.put(`/api/admin/accounts/${id}/status`, { status });
+  },
+  deleteAccount(id) {
+    return apiClient.delete(`/api/admin/accounts/${id}`);
   }
 };

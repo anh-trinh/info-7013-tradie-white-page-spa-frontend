@@ -31,8 +31,12 @@ apiClient.interceptors.request.use(
       isPublic = false;
     }
 
-    // Read token from both localStorage and sessionStorage
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    // Read token from both localStorage and sessionStorage (user or admin)
+    const token =
+      localStorage.getItem('token') ||
+      sessionStorage.getItem('token') ||
+      localStorage.getItem('admin_token') ||
+      sessionStorage.getItem('admin_token');
 
     // Attach Authorization header if token exists (even for public endpoints it's okay but not required)
     if (token) {
@@ -46,9 +50,14 @@ apiClient.interceptors.request.use(
       return config;
     }
 
-    // Otherwise, redirect to login and block the request
+    // Otherwise, redirect to the appropriate login and block the request
+    const reqPath = (() => {
+      try { return new URL(config.url, BASE_URL).pathname; } catch { return ''; }
+    })();
+    const isAdminArea = window.location.pathname.startsWith('/admin') || reqPath.startsWith('/api/admin');
+    const targetLogin = isAdminArea ? '/admin/login' : '/login';
     if (!window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/admin/login')) {
-      window.location.href = '/login';
+      window.location.href = targetLogin;
     }
     return Promise.reject(new Error('Missing auth token'));
   },
@@ -63,11 +72,17 @@ apiClient.interceptors.response.use(
       // Clear any stored auth and redirect to login
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('admin_token');
+      localStorage.removeItem('admin_user');
       sessionStorage.removeItem('token');
       sessionStorage.removeItem('user');
+      sessionStorage.removeItem('admin_token');
+      sessionStorage.removeItem('admin_user');
       // Avoid redirect loop when already on login
       if (!window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/admin/login')) {
-        window.location.href = '/login';
+        const reqPath = error?.config?.url || '';
+        const isAdminArea = window.location.pathname.startsWith('/admin') || reqPath.includes('/api/admin');
+        window.location.href = isAdminArea ? '/admin/login' : '/login';
       }
     }
     return Promise.reject(error);

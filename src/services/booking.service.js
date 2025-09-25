@@ -17,8 +17,17 @@ export default {
   createBooking(payload) {
     return apiClient.post('/api/bookings', payload);
   },
+  updateMyBookingStatus(id, status) {
+    return apiClient.put(`/api/bookings/${id}/status`, { status });
+  },
   // Admin APIs
   getAllBookings() {
     return apiClient.get('/api/admin/bookings');
+  },
+  getAdminBookingById(id) {
+    return apiClient.get(`/api/admin/bookings/${id}`);
+  },
+  updateBookingStatus(id, status) {
+    return apiClient.put(`/api/admin/bookings/${id}/status`, { status });
   }
 };

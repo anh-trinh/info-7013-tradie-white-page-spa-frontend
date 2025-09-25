@@ -2,14 +2,27 @@ import { defineStore } from 'pinia';
 
 // Helper functions to get token/user from both localStorage and sessionStorage
 const getStoredToken = () => {
-  return localStorage.getItem('token') || sessionStorage.getItem('token') || null;
+  // Prefer normal user token; fallback to admin token
+  return (
+    localStorage.getItem('token') ||
+    sessionStorage.getItem('token') ||
+    localStorage.getItem('admin_token') ||
+    sessionStorage.getItem('admin_token') ||
+    null
+  );
 };
 
 const getStoredUser = () => {
-  const userFromLocal = localStorage.getItem('user');
-  const userFromSession = sessionStorage.getItem('user');
+  // Prefer normal user; fallback to admin user
+  const userFromLocal = localStorage.getItem('user') || localStorage.getItem('admin_user');
+  const userFromSession = sessionStorage.getItem('user') || sessionStorage.getItem('admin_user');
   const userData = userFromLocal || userFromSession;
-  return userData ? JSON.parse(userData) : null;
+  try {
+    return userData ? JSON.parse(userData) : null;
+  } catch (e) {
+    console.warn('Failed to parse stored user', e);
+    return null;
+  }
 };
 
 export const useAuthStore = defineStore('auth', {
@@ -28,8 +41,12 @@ export const useAuthStore = defineStore('auth', {
       // Clear from both storage locations
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('admin_token');
+      localStorage.removeItem('admin_user');
       sessionStorage.removeItem('token');
       sessionStorage.removeItem('user');
+      sessionStorage.removeItem('admin_token');
+      sessionStorage.removeItem('admin_user');
       window.location.href = '/';
     },
     updateUser(partial) {

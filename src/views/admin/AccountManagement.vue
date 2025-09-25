@@ -29,11 +29,28 @@
                 <button @click="toggleSuspend(account)" class="text-yellow-500 font-medium">
                   {{ account.status === 'active' ? 'Suspend' : 'Activate' }}
                 </button>
-                <button class="text-red-500 font-medium">Delete</button>
+                <button @click="openDeleteModal(account)" class="text-red-500 font-medium">Delete</button>
             </td>
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div v-if="showDeleteModal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
+        <h4 class="text-lg font-semibold mb-2">Confirm Delete</h4>
+        <p class="text-sm text-gray-600 mb-4">Are you sure you want to permanently delete this account? This action cannot be undone.</p>
+
+        <div v-if="deleteError" class="mb-3 p-2 rounded bg-red-50 text-red-700 text-sm">{{ deleteError }}</div>
+
+        <div class="flex justify-end space-x-2">
+          <button @click="closeDeleteModal" class="px-4 py-2 border rounded">Cancel</button>
+          <button @click="confirmDelete" :disabled="deleting" class="px-4 py-2 rounded text-white bg-red-600 hover:bg-red-700 disabled:opacity-60">
+            {{ deleting ? 'Deleting...' : 'Delete' }}
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -45,6 +62,10 @@ import accountService from '@/services/account.service';
 const accounts = ref([]);
 const loading = ref(true);
 const error = ref(null);
+const showDeleteModal = ref(false);
+const deleting = ref(false);
+const deleteError = ref(null);
+const toDelete = ref(null);
 
 async function fetchAccounts() {
   try {
@@ -65,12 +86,42 @@ async function toggleSuspend(account) {
     // Update status on UI
     account.status = newStatus; 
   } catch (err) {
-    alert('Failed to update status.');
+    // Inline error banner instead of alert
+    error.value = 'Failed to update status.';
     console.error(err);
   }
 }
 
 onMounted(fetchAccounts);
+
+function openDeleteModal(account) {
+  toDelete.value = account;
+  deleteError.value = null;
+  showDeleteModal.value = true;
+}
+
+function closeDeleteModal() {
+  showDeleteModal.value = false;
+  toDelete.value = null;
+  deleting.value = false;
+  deleteError.value = null;
+}
+
+async function confirmDelete() {
+  if (!toDelete.value) return;
+  deleting.value = true;
+  deleteError.value = null;
+  try {
+    await accountService.deleteAccount(toDelete.value.id);
+    // Remove from list
+    accounts.value = accounts.value.filter(a => a.id !== toDelete.value.id);
+    closeDeleteModal();
+  } catch (err) {
+    deleteError.value = err?.response?.data?.message || 'Failed to delete account.';
+    console.error(err);
+    deleting.value = false;
+  }
+}
 
 // Helper functions for styling
 const roleClass = (role) => ({
@@ -80,6 +131,7 @@ const roleClass = (role) => ({
 const statusClass = (status) => ({
   'bg-green-200 text-green-800': status === 'active',
   'bg-yellow-200 text-yellow-800': status === 'suspended',
+  'bg-gray-200 text-gray-800': status === 'pending' || status === 'inactive',
 });
 
 // Date helper DD/MM/YYYY

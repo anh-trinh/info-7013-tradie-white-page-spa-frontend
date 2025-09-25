@@ -19,7 +19,23 @@
         
         <div class="mt-2 space-x-2">
           <button v-if="review.is_flagged" @click="approveReview(review)" class="text-green-500 font-medium">Approve</button>
-          <button @click="deleteReview(review)" class="text-red-500 font-medium">Delete</button>
+          <button @click="openDeleteModal(review)" class="text-red-500 font-medium">Delete</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete Confirm Modal -->
+    <div v-if="showDeleteModal" class="fixed inset-0 z-50 flex items-center justify-center">
+      <div class="absolute inset-0 bg-black/40" @click="closeDeleteModal"></div>
+      <div class="relative bg-white w-full max-w-md mx-4 rounded-lg shadow-xl p-6">
+        <h3 class="text-xl font-bold mb-2">Delete Review</h3>
+        <p>Are you sure you want to delete this review?</p>
+        <div class="mt-6 flex justify-end gap-3">
+          <button @click="closeDeleteModal" class="px-4 py-2 rounded-md border">Cancel</button>
+          <button @click="confirmDelete" :disabled="deleting" class="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
+            <span v-if="deleting">Deleting...</span>
+            <span v-else>Delete</span>
+          </button>
         </div>
       </div>
     </div>
@@ -27,56 +43,27 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import StarRating from '@/components/shared/StarRating.vue';
-// import reviewService from '@/services/review.service'; // Uncomment when API is ready
-
-const reviews = ref([
-  // Sample data for demonstration
-  {
-    id: 1,
-    resident_name: 'Sarah J.',
-    tradie_name: "Mike's Plumbing",
-    rating: 5,
-    comment: 'Excellent service! Mike was punctual and professional.',
-    created_at: '2024-03-15T10:30:00Z',
-    is_flagged: false
-  },
-  {
-    id: 2,
-    resident_name: 'John D.',
-    tradie_name: 'ABC Electrical',
-    rating: 1,
-    comment: 'Poor service and overcharged. Would not recommend.',
-    created_at: '2024-03-14T14:20:00Z',
-    is_flagged: true
-  },
-  {
-    id: 3,
-    resident_name: 'Lisa M.',
-    tradie_name: 'Garden Care Pro',
-    rating: 4,
-    comment: 'Good work on the garden maintenance. Very satisfied.',
-    created_at: '2024-03-13T09:15:00Z',
-    is_flagged: false
-  }
-]);
-
-const loading = ref(false);
+import reviewService from '@/services/review.service';
+const reviews = ref([]);
+const loading = ref(true);
 const error = ref(null);
+const showDeleteModal = ref(false);
+const deleting = ref(false);
+const toDelete = ref(null);
 
-// Uncomment this when API is ready
-// onMounted(async () => {
-//   try {
-//     const response = await reviewService.getAllReviews();
-//     reviews.value = response.data;
-//   } catch (err) {
-//     error.value = 'Failed to load reviews.';
-//     console.error(err);
-//   } finally {
-//     loading.value = false;
-//   }
-// });
+onMounted(async () => {
+  try {
+    const response = await reviewService.getAllReviews();
+    reviews.value = response.data;
+  } catch (err) {
+    error.value = 'Failed to load reviews.';
+    console.error(err);
+  } finally {
+    loading.value = false;
+  }
+});
 
 const approveReview = (review) => {
   review.is_flagged = false;
@@ -84,16 +71,29 @@ const approveReview = (review) => {
   console.log('Approving review:', review);
 };
 
-const deleteReview = (review) => {
-  if (confirm('Are you sure you want to delete this review?')) {
-    const index = reviews.value.findIndex(r => r.id === review.id);
-    if (index > -1) {
-      reviews.value.splice(index, 1);
-    }
-    // TODO: Call API to delete review
-    console.log('Deleting review:', review);
+function openDeleteModal(review) {
+  toDelete.value = review;
+  showDeleteModal.value = true;
+}
+
+function closeDeleteModal() {
+  showDeleteModal.value = false;
+}
+
+async function confirmDelete() {
+  if (!toDelete.value) return;
+  try {
+    deleting.value = true;
+    await reviewService.deleteReview(toDelete.value.id);
+    const index = reviews.value.findIndex(r => r.id === toDelete.value.id);
+    if (index > -1) reviews.value.splice(index, 1);
+    closeDeleteModal();
+  } catch (err) {
+    console.error('Failed to delete review', err);
+  } finally {
+    deleting.value = false;
   }
-};
+}
 
 const formatDate = (dateString) => {
   if (!dateString) return '';
