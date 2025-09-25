@@ -1,37 +1,56 @@
 <template>
   <div class="bg-white p-8 rounded-lg shadow-md">
-    <h3 class="text-2xl font-bold text-gray-800 mb-6">Quote Requests</h3>
-    
-    <div v-if="loading" class="text-center text-gray-500">Loading...</div>
-    <div v-else-if="error" class="text-center text-red-500">{{ error }}</div>
-    
-    <div v-else-if="quotes.length === 0" class="text-center text-gray-500">
-      No quote requests at this time.
-    </div>
+    <h3 class="text-2xl font-bold text-gray-800 mb-6">Incoming Quote Requests</h3>
 
-    <div v-else class="space-y-6">
-      <div v-for="quote in quotes" :key="quote.id" class="border rounded-lg p-6" :class="getBorderClass(quote.status)">
-        <div class="flex justify-between items-start">
-          <div>
-            <h4 class="font-bold text-lg">{{ quote.job_description }}</h4>
-            <p class="text-sm text-gray-600">Requested by {{ getRequesterName(quote) }}</p>
-            <p class="text-xs text-gray-500" v-if="quote.address">{{ quote.address }}</p>
+    <div v-if="loading" class="text-center text-gray-500">Loading requests...</div>
+    <div v-else-if="error" class="text-center text-red-500">{{ error }}</div>
+    <div v-else-if="quotes.length === 0" class="text-center text-gray-500">You have no new quote requests.</div>
+
+    <div v-else class="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <div class="md:col-span-1">
+        <h4 class="font-semibold mb-2">Requests</h4>
+        <div class="space-y-4">
+          <div v-for="quote in quotes" :key="quote.id"
+               @click="selectQuote(quote)"
+               class="border rounded-lg p-4 cursor-pointer hover:bg-gray-50"
+               :class="{'bg-blue-50 border-blue-500': selectedQuote && selectedQuote.id === quote.id}">
+            <p class="font-bold">{{ quote.job_description }}</p>
+            <p class="text-sm text-gray-500">Status: <span class="font-semibold">{{ quote.status }}</span></p>
           </div>
-          <span class="font-semibold px-3 py-1 rounded-full text-sm" :class="statusClass(quote.status)">
-            {{ quote.status }}
-          </span>
         </div>
-        
-        <p v-if="quote.details" class="mt-4 text-gray-700 italic">"{{ quote.details }}"</p>
-        
-        <div v-if="quote.status === 'responded' && quote.quote_amount" class="mt-4 bg-gray-100 p-4 rounded-md">
-          <p class="font-semibold text-gray-800">Your Quote: ${{ quote.quote_amount }}</p>
-          <p class="text-sm text-gray-600">Waiting for resident to respond.</p>
+      </div>
+
+      <div class="md:col-span-2">
+        <div v-if="!selectedQuote" class="text-center text-gray-500 pt-10">
+          Select a request from the left to respond.
         </div>
-        
-        <div v-if="quote.status === 'pending'" class="mt-4 flex flex-wrap gap-3">
-          <button @click="sendQuote(quote)" class="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-semibold">Send Quote</button>
-          <button @click="declineQuote(quote)" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md text-sm font-semibold">Decline</button>
+        <div v-else>
+          <h4 class="text-xl font-bold mb-4">Request Details</h4>
+          <p class="mb-4">{{ selectedQuote.job_description }}</p>
+
+          <div class="space-y-4 border p-4 rounded-md h-64 overflow-y-auto mb-4 bg-gray-50">
+            <p v-if="(selectedQuote.messages?.length || 0) === 0" class="text-gray-500">No messages yet. Be the first to respond!</p>
+            <div v-for="message in selectedQuote.messages" :key="message.id">
+              <p class="text-sm font-semibold">{{ message.sender_account_id === auth.getUser.id ? 'You' : 'Resident' }} said:</p>
+              <p class="text-gray-700">{{ message.message }}</p>
+              <p v-if="message.offered_price" class="font-bold text-blue-600">Offered Price: ${{ message.offered_price }}</p>
+            </div>
+          </div>
+
+          <form @submit.prevent="sendQuoteResponse">
+            <h5 class="font-semibold mb-2">Send Your Quote</h5>
+            <div>
+                <label class="block text-sm">Your offered price ($)</label>
+                <input v-model.number="offeredPrice" type="number" step="0.01" min="0" placeholder="e.g., 150.00" class="w-full p-2 border rounded-md" required>
+            </div>
+            <div class="mt-2">
+                <label class="block text-sm">Message to Resident</label>
+                <textarea v-model="message" placeholder="e.g., This price includes parts and labor..." class="w-full p-2 border rounded-md" required></textarea>
+            </div>
+            <div class="mt-4">
+                <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-md font-semibold hover:bg-blue-700">Send Quote</button>
+            </div>
+          </form>
         </div>
       </div>
     </div>
@@ -41,59 +60,70 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import bookingService from '@/services/booking.service';
+import { useAuthStore } from '@/stores/auth.store';
 
+const auth = useAuthStore();
 const quotes = ref([]);
 const loading = ref(true);
 const error = ref(null);
+const selectedQuote = ref(null);
 
+// Form state
+const message = ref('');
+const offeredPrice = ref(null);
+
+// Load quotes assigned to this tradie
 onMounted(async () => {
   try {
     const response = await bookingService.getQuotes();
     quotes.value = response.data;
-  } catch (err) {
+  } catch (err) { 
     error.value = 'Failed to load quote requests.';
     console.error(err);
-  } finally {
-    loading.value = false;
+  } finally { 
+    loading.value = false; 
   }
 });
 
-const sendQuote = (quote) => {
-  // TODO: Implement quote sending logic
-  console.log('Sending quote for:', quote);
-};
-
-const declineQuote = (quote) => {
-  // TODO: Implement quote declining logic  
-  console.log('Declining quote for:', quote);
-};
-
-const getBorderClass = (status) => {
-  if (status === 'pending') return 'border-blue-300 bg-blue-50';
-  return 'border-gray-200';
-};
-
-const statusClass = (status) => {
-  if (status === 'pending') return 'bg-blue-200 text-blue-800';
-  if (status === 'responded') return 'bg-gray-200 text-gray-800';
-  if (status === 'accepted') return 'bg-green-200 text-green-800';
-  return 'bg-gray-200 text-gray-800';
-};
-
-function getRequesterName(quote) {
-  // Common shapes we might receive from API
-  if (quote?.resident_name) return quote.resident_name;
-  const resident = quote?.resident || quote?.user || quote?.account || quote?.requester;
-  if (resident) {
-    const first = resident.first_name || resident.firstName || '';
-    const last = resident.last_name || resident.lastName || '';
-    const full = `${first} ${last}`.trim();
-    if (full) return full;
-    if (resident.name) return resident.name;
-    if (resident.email) return resident.email.split('@')[0];
+// When selecting a quote, fetch full details (including messages)
+async function selectQuote(quote) {
+  try {
+    const res = await bookingService.getQuoteById(quote.id);
+    selectedQuote.value = res.data;
+  } catch (err) {
+    console.error('Failed to load quote detail', err);
   }
-  // Fallbacks
-  if (quote?.email) return quote.email.split('@')[0];
-  return 'Unknown';
+  // Reset form
+  message.value = '';
+  offeredPrice.value = null;
+}
+
+// Send tradie's quote (message + price)
+async function sendQuoteResponse() {
+  if (!offeredPrice.value || !message.value.trim() || !selectedQuote.value) {
+    alert('Please enter both price and message.');
+    return;
+  }
+
+  const payload = {
+    message: message.value,
+    offered_price: offeredPrice.value
+  };
+
+  try {
+    await bookingService.addQuoteMessage(selectedQuote.value.id, payload);
+
+    alert('Your quote has been sent successfully!');
+
+    // Reload list to reflect status changes
+    const response = await bookingService.getQuotes();
+    quotes.value = response.data;
+
+    // Clear selection
+    selectedQuote.value = null;
+  } catch (err) {
+    alert('Failed to send quote.');
+    console.error(err);
+  }
 }
 </script>
