@@ -107,6 +107,23 @@ router.beforeEach((to, from, next) => {
     return;
   }
 
+  // Role-based dashboard redirection
+  // - If a tradie visits /dashboard (resident area), send them to /tradie-dashboard (preserve subpath)
+  // - If a resident visits /tradie-dashboard, send them to /dashboard (preserve subpath)
+  const role = auth.getUser?.role;
+  if (requiresAuth && role) {
+    if (role === 'tradie' && to.path.startsWith('/dashboard')) {
+      const suffix = to.path.replace(/^\/dashboard/, '');
+      next({ path: `/tradie-dashboard${suffix}`, query: to.query, hash: to.hash });
+      return;
+    }
+    if (role === 'resident' && to.path.startsWith('/tradie-dashboard')) {
+      const suffix = to.path.replace(/^\/tradie-dashboard/, '');
+      next({ path: `/dashboard${suffix}`, query: to.query, hash: to.hash });
+      return;
+    }
+  }
+
   next();
 });
 

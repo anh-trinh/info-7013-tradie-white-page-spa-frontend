@@ -34,6 +34,9 @@ src/
 		HelloWorld.vue        # Example/demo component
 		TheWelcome.vue        # Example/demo component
 		WelcomeItem.vue       # Example/demo component
+		TheHeader.vue         # Main header component with auth & navigation
+		shared/               # Shared/reusable components
+			StarRating.vue      # Star rating display component
 		icons/                # SVG icon components
 			IconCommunity.vue
 			IconDocumentation.vue
@@ -44,6 +47,10 @@ src/
 		index.js              # Route definitions & guards
 	services/               # API service modules
 		api.js                # Axios config for backend requests
+		account.service.js    # User profile & account management APIs
+		booking.service.js    # Quotes, bookings & jobs APIs
+		tradie.service.js     # Service categories & tradie APIs
+		review.service.js     # Review management APIs
 	stores/                 # Pinia stores (global state)
 		auth.store.js         # Auth/user state management
 		counter.js            # Example/demo store
@@ -51,7 +58,12 @@ src/
 		AboutView.vue         # About page
 		HomeView.vue          # Home page
 		ResidentDashboard.vue # Resident dashboard layout
-		TradieDashboard.vue   # Tradie dashboard layout
+		AdminDashboard.vue    # Admin dashboard layout
+		admin/                # Admin dashboard tabs/pages
+			AccountManagement.vue # User account management
+			JobManagement.vue     # Job/booking oversight
+			ServiceCategories.vue # Service category management
+			ReviewManagement.vue  # Review moderation
 		resident/             # Resident dashboard tabs/pages
 			MyProfile.vue       # Resident profile tab
 			MyQuoteRequests.vue # Resident quote requests tab

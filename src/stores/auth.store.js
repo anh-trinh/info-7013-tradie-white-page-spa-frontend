@@ -31,6 +31,19 @@ export const useAuthStore = defineStore('auth', {
       sessionStorage.removeItem('token');
       sessionStorage.removeItem('user');
       window.location.href = '/';
+    },
+    updateUser(partial) {
+      // Merge and persist user updates so UI (header) reflects changes immediately
+      const current = this.user || {};
+      this.user = { ...current, ...partial };
+      try {
+        const serialized = JSON.stringify(this.user);
+        localStorage.setItem('user', serialized);
+        sessionStorage.setItem('user', serialized);
+      } catch (e) {
+        // Non-fatal if storage fails
+        console.warn('Failed to persist updated user to storage', e);
+      }
     }
   }
 });

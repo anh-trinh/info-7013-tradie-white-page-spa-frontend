@@ -23,4 +23,20 @@ export default defineConfig([
   js.configs.recommended,
   ...pluginVue.configs['flat/essential'],
   skipFormatting,
+  // Node/config files
+  {
+    name: 'node-config-files',
+    files: [
+      '*.cjs',
+      '*.config.*',
+      'vite.config.js',
+      'postcss.config.cjs',
+      'tailwind.config.js',
+    ],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
 ])
