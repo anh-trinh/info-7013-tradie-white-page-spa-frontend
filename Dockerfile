@@ -1,19 +1,22 @@
 # --- Stage 1: Build ---
-# Using lightweight Node image
-FROM node:18-alpine AS build
+# Vite >=7 requires Node.js 20.19+ or 22.12+; use latest LTS (22) for compatibility
+FROM node:22-alpine AS build
 
 # Set working directory
 WORKDIR /app
 
-# Install build dependencies first (better layer caching)
-COPY package*.json ./
-# If you ever add a .npmrc or similar, copy it here as well.
-RUN npm install
+# Add common compatibility libs for some native dependencies / esbuild
+RUN apk add --no-cache libc6-compat
 
-# Copy the rest of the source
+# Install dependencies first (leverages layer cache)
+COPY package*.json ./
+# Prefer deterministic clean install
+RUN npm ci
+
+# Copy application source
 COPY . .
 
-# Build the production bundle (Vite will output to /app/dist by default)
+# Build the production bundle (Vite outputs to /app/dist by default)
 RUN npm run build
 
 # --- Stage 2: Runtime (Nginx) ---
