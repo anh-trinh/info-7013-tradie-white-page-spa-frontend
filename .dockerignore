@@ -1,0 +1,25 @@
+# Dependency directories
+node_modules
+
+# Local env files
+.env*
+
+# Build output (will be generated in container)
+dist
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor / IDE
+.idea
+.vscode
+*.swp
+
+# Git
+.git
+.gitignore
+
+# Mac / system files
+.DS_Store
