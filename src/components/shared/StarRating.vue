@@ -18,7 +18,7 @@
 </template>
 
 <script setup>
-// Component này nhận một prop là 'rating' (dạng số)
+// Component accepts a numeric 'rating' prop
 defineProps({
   rating: {
     type: Number,
