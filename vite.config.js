@@ -7,22 +7,27 @@ import tailwindcss from 'tailwindcss'
 import autoprefixer from 'autoprefixer'
 
 // https://vite.dev/config/
-export default defineConfig({
-  plugins: [
-    vue(),
-    vueDevTools(),
-  ],
-  css: {
-    postcss: {
-      plugins: [
-        tailwindcss(),
-        autoprefixer(),
-      ],
+// Use function form so we can access mode and conditionally include dev-only plugins
+export default defineConfig(({ mode }) => {
+  const isDev = mode === 'development'
+  return {
+    plugins: [
+      vue(),
+      // vue-devtools is helpful in dev but can break / bloat production build
+      isDev && vueDevTools(),
+    ].filter(Boolean),
+    css: {
+      postcss: {
+        plugins: [
+          tailwindcss(),
+          autoprefixer(),
+        ],
+      },
     },
-  },
-  resolve: {
-    alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url))
+    resolve: {
+      alias: {
+        '@': fileURLToPath(new URL('./src', import.meta.url))
+      },
     },
-  },
+  }
 })
