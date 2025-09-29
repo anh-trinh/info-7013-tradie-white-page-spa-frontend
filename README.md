@@ -8,11 +8,12 @@
 	 npm install
 	 ```
 
-2. Start development server (for WSL or network access):
-	```bash
+2. Start development server (dynamic port; defaults to 5173, auto-increments if busy):
+ 	```bash
 	npm run dev
 	```
-		Access at: http://localhost:5173/ (or http://<your-ip>:5173/ for network access)
+	The script will find a free port starting at 5173 (override base with DEV_BASE_PORT). It prints the chosen port.
+ 	Access at: http://localhost:<chosen-port>/ (or http://<your-ip>:<chosen-port>/ for LAN)
 
 3. Build for production:
 	 ```bash
